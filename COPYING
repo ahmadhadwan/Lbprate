@@ -1,0 +1,11 @@
+--2022-03-25 18:22:36--  https://raw.githubusercontent.com/ahmadhadwan/Lbprate/main/LICENSE
+Resolving raw.githubusercontent.com (raw.githubusercontent.com)... 185.199.110.133, 185.199.109.133, 185.199.111.133, ...
+Connecting to raw.githubusercontent.com (raw.githubusercontent.com)|185.199.110.133|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 18092 (18K) [text/plain]
+Saving to: ‘LICENSE’
+
+     0K .......... .......                                    100%  242K=0.07s
+
+2022-03-25 18:22:37 (242 KB/s) - ‘LICENSE’ saved [18092/18092]
+
