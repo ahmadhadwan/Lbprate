@@ -65,14 +65,10 @@ parse_rates(string *page, char *buy, char *sell)
                     memcpy(buy, page->str + start, i - start);
                     buy[i - start] = 0;
                 }
-                else if (sell[0] == 0) {
+                else {
                     memcpy(sell, page->str + start, i - start);
                     sell[i - start] = 0;
                     return 0;
-                }
-                else {
-                    fprintf(stderr, "[ERROR] Identifier is not unique!\n");
-                    return 1;
                 }
             }
         }

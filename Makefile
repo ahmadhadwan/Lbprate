@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=
+CFLAGS=-Wall -O2
 LFLAGS=-lcurl
 
 BIN_DIR=./bin/

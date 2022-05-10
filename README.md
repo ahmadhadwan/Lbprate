@@ -18,7 +18,7 @@ from https://lbprate.com/
 
 # Usage
 ```
-    ./bin/lpbrate
+    ./bin/lbprate
 ```
 
 # TODO
