@@ -24,16 +24,20 @@
 #include <string.h>
 
 /* macros */
-#define IDENTIFIER_START   '>'
-#define IDENTIFIER_END     ' '
-#define IDENTIFIER         "1 USD at  "
-#define IDENTIFIER_SIZE    10
+#define IDENTIFIER_START   ">1 USD at  "
+#define IDENTIFIER_END     " "
 
 /* structs */
 typedef struct {
     size_t len;
     char *buff;
 } sizedbuff;
+
+/* function declarations */
+size_t got_data(char *buffer, size_t itemsize, size_t nitems, sizedbuff *userp);
+int lbprate_print(CURL *curl);
+int parse_x(char *str, const char *beforex, const char *afterx,
+            size_t *x_offset, size_t *x_len);
 
 size_t got_data(char *buffer, size_t itemsize, size_t nitems, sizedbuff *userp)
 {
@@ -45,33 +49,79 @@ size_t got_data(char *buffer, size_t itemsize, size_t nitems, sizedbuff *userp)
     return bytes;
 }
 
-int parse_rates(sizedbuff *page, char *buy, char *sell)
+int lbprate_print(CURL *curl)
 {
-    size_t start;
+    CURLcode result;
+    sizedbuff page;
+    size_t buy_offset, buy_len, sell_offset, sell_len;
+    char *buy, *sell;
 
-    buy[0] = 0;
-    sell[0] = 0;
+    page.len = 0;
+    page.buff = NULL;
 
-    for (size_t i = 0; i < page->len; i++) {
-        if (page->buff[i] == IDENTIFIER_START) {
-            i++;
-            if (!strncmp(page->buff + i, IDENTIFIER, IDENTIFIER_SIZE)) {
-                i += IDENTIFIER_SIZE;
-                start = i;
-                while (page->buff[i] != IDENTIFIER_END
-                    && page->buff[i] != '\0') {
-                    i++;
-                }
-                
-                if (buy[0] == 0) {
-                    memcpy(buy, page->buff + start, i - start);
-                    buy[i - start] = 0;
-                }
-                else {
-                    memcpy(sell, page->buff + start, i - start);
-                    sell[i - start] = 0;
-                    return 0;
-                }
+    curl_easy_setopt(curl, CURLOPT_URL, "https://lbprate.com/");
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, got_data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &page);
+
+    result = curl_easy_perform(curl);
+    if (result != CURLE_OK) {
+        fprintf(stderr, "[Error] [lbprate.com] Download problem: %s\n", curl_easy_strerror(result));
+        return 1;
+    }
+
+    buy_offset = buy_len = sell_offset = sell_len = 0;
+
+    if (parse_x(page.buff, IDENTIFIER_START, IDENTIFIER_END,
+                &buy_offset, &buy_len)) {
+        goto CLEANUP;
+    }
+
+    if (parse_x(page.buff + buy_offset + buy_len, IDENTIFIER_START, IDENTIFIER_END,
+                &sell_offset, &sell_len)) {
+        goto CLEANUP;
+    }
+
+    buy = malloc(buy_len + 1);
+    sell = malloc(sell_len + 1);
+
+    memcpy(buy, page.buff + buy_offset, buy_len);
+    buy[buy_len] = '\0';
+    memcpy(sell, page.buff + buy_offset + buy_len + sell_offset, sell_len);
+    sell[sell_len] = '\0';
+
+    printf("Lbprate: Buy %s / Sell %s\n", buy, sell);
+    free(page.buff);
+    free(buy);
+    free(sell);
+    return 0;
+
+CLEANUP:
+    free(page.buff);
+    fprintf(stderr, "[Error] Failed to parse lbprate.com's page!\n");
+    return 1;
+}
+
+int parse_x(char *str, const char *beforex, const char *afterx,
+            size_t *x_offset, size_t *x_len)
+{
+    int beforex_len, afterx_len;
+
+    beforex_len = strlen(beforex);
+    afterx_len = strlen(afterx);
+
+    for (size_t i = 0; str[i]; i++) {
+        if (str[i] == beforex[0]) {
+            if (!strncmp(str + i, beforex, beforex_len)) {
+                i += beforex_len;
+                *x_offset = i;
+                do {
+                    while (str[i] != afterx[0] && str[i] != '\0') {
+                        i++;
+                    }
+                } while (strncmp(str + i, afterx, afterx_len));
+
+                *x_len = i - *x_offset;
+                return 0;
             }
         }
     }
@@ -82,41 +132,15 @@ int parse_rates(sizedbuff *page, char *buy, char *sell)
 int main(void)
 {
     CURL *curl;
-    CURLcode result;
-    sizedbuff page;
-    char buy[256], sell[256];
-
-    page.len = 0;
-    page.buff = NULL;
+    int return_code;
 
     curl = curl_easy_init();
     if (!curl) {
-        fprintf(stderr, "[ERROR] Failed to init libcurl!\n");
+        fprintf(stderr, "[Error] Failed to init libcurl!\n");
         return 1;
     }
 
-    curl_easy_setopt(curl, CURLOPT_URL, "https://lbprate.com/");
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, got_data);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &page);
-
-    result = curl_easy_perform(curl);
-    if (result != CURLE_OK) {
-        fprintf(stderr, "[ERROR] Download problem: %s\n", curl_easy_strerror(result));
-        curl_easy_cleanup(curl);
-        free(page.buff);
-        return 1;
-    }
-
+    return_code = lbprate_print(curl);
     curl_easy_cleanup(curl);
-
-    if (parse_rates(&page, buy, sell)) {
-        free(page.buff);
-        fprintf(stderr, "[ERROR] Failed to parse the page!\n");
-        return 1;
-    }
-
-    printf("Lbprate: %s/%s\n", buy, sell);
-    free(page.buff);
-
-    return 0;
+    return return_code;
 }
