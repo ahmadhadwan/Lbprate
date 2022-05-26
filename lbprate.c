@@ -32,22 +32,20 @@
 /* structs */
 typedef struct {
     size_t len;
-    char* str;
-} string;
+    char *buff;
+} sizedbuff;
 
-size_t
-got_data(char *buffer, size_t itemsize, size_t nitems, string *userp)
+size_t got_data(char *buffer, size_t itemsize, size_t nitems, sizedbuff *userp)
 {
     size_t bytes = itemsize * nitems;
-    userp->str = realloc(userp->str, userp->len + bytes + 1);
-    memcpy(userp->str + userp->len, buffer, bytes);
+    userp->buff = realloc(userp->buff, userp->len + bytes + 1);
+    memcpy(userp->buff + userp->len, buffer, bytes);
     userp->len += bytes;
-    userp->str[userp->len] = '\0';
+    userp->buff[userp->len] = '\0';
     return bytes;
 }
 
-int
-parse_rates(string *page, char *buy, char *sell)
+int parse_rates(sizedbuff *page, char *buy, char *sell)
 {
     size_t start;
 
@@ -55,18 +53,22 @@ parse_rates(string *page, char *buy, char *sell)
     sell[0] = 0;
 
     for (size_t i = 0; i < page->len; i++) {
-        if (page->str[i] == IDENTIFIER_START) {
+        if (page->buff[i] == IDENTIFIER_START) {
             i++;
-            if (!strncmp(page->str + i, IDENTIFIER, IDENTIFIER_SIZE)) {
+            if (!strncmp(page->buff + i, IDENTIFIER, IDENTIFIER_SIZE)) {
                 i += IDENTIFIER_SIZE;
                 start = i;
-                while (page->str[i] != IDENTIFIER_END && page->str[i] != '\0') i++;
+                while (page->buff[i] != IDENTIFIER_END
+                    && page->buff[i] != '\0') {
+                    i++;
+                }
+                
                 if (buy[0] == 0) {
-                    memcpy(buy, page->str + start, i - start);
+                    memcpy(buy, page->buff + start, i - start);
                     buy[i - start] = 0;
                 }
                 else {
-                    memcpy(sell, page->str + start, i - start);
+                    memcpy(sell, page->buff + start, i - start);
                     sell[i - start] = 0;
                     return 0;
                 }
@@ -77,16 +79,15 @@ parse_rates(string *page, char *buy, char *sell)
     return 1;
 }
 
-int
-main(void)
+int main(void)
 {
     CURL *curl;
     CURLcode result;
-    string page;
+    sizedbuff page;
     char buy[256], sell[256];
 
     page.len = 0;
-    page.str = malloc(0);
+    page.buff = NULL;
 
     curl = curl_easy_init();
     if (!curl) {
@@ -102,20 +103,20 @@ main(void)
     if (result != CURLE_OK) {
         fprintf(stderr, "[ERROR] Download problem: %s\n", curl_easy_strerror(result));
         curl_easy_cleanup(curl);
-        free(page.str);
+        free(page.buff);
         return 1;
     }
 
     curl_easy_cleanup(curl);
 
     if (parse_rates(&page, buy, sell)) {
-        free(page.str);
+        free(page.buff);
         fprintf(stderr, "[ERROR] Failed to parse the page!\n");
         return 1;
     }
 
-    printf("%s/%s\n", buy, sell);
-    free(page.str);
+    printf("Lbprate: %s/%s\n", buy, sell);
+    free(page.buff);
 
     return 0;
 }
