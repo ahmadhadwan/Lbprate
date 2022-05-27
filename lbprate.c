@@ -24,8 +24,11 @@
 #include <string.h>
 
 /* macros */
-#define IDENTIFIER_START   ">1 USD at  "
-#define IDENTIFIER_END     " "
+#define LBPRATE_IDENTIFIER_START   "1 USD at  "
+#define LBPRATE_IDENTIFIER_END     " "
+
+#define GTOG_IDENTIFIER_START      "GTOG&#039;s rate for its cards is "
+#define GTOG_IDENTIFIER_END        " "
 
 /* structs */
 typedef struct {
@@ -36,6 +39,7 @@ typedef struct {
 /* function declarations */
 size_t got_data(char *buffer, size_t itemsize, size_t nitems, sizedbuff *userp);
 int lbprate_print(CURL *curl);
+int gtog_print(CURL *curl);
 int parse_x(char *str, const char *beforex, const char *afterx,
             size_t *x_offset, size_t *x_len);
 
@@ -71,12 +75,12 @@ int lbprate_print(CURL *curl)
 
     buy_offset = buy_len = sell_offset = sell_len = 0;
 
-    if (parse_x(page.buff, IDENTIFIER_START, IDENTIFIER_END,
+    if (parse_x(page.buff, LBPRATE_IDENTIFIER_START, LBPRATE_IDENTIFIER_END,
                 &buy_offset, &buy_len)) {
         goto CLEANUP;
     }
 
-    if (parse_x(page.buff + buy_offset + buy_len, IDENTIFIER_START, IDENTIFIER_END,
+    if (parse_x(page.buff + buy_offset + buy_len, LBPRATE_IDENTIFIER_START, LBPRATE_IDENTIFIER_END,
                 &sell_offset, &sell_len)) {
         goto CLEANUP;
     }
@@ -99,6 +103,46 @@ CLEANUP:
     free(page.buff);
     fprintf(stderr, "[Error] Failed to parse lbprate.com's page!\n");
     return 1;
+}
+
+int gtog_print(CURL *curl)
+{
+    CURLcode result;
+    sizedbuff page;
+    size_t buy_offset, buy_len;
+    char *buy;
+
+    page.len = 0;
+    page.buff = NULL;
+
+    curl_easy_setopt(curl, CURLOPT_URL, "https://www.omt.com.lb/en/services/payment/o-store");
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, got_data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &page);
+
+    result = curl_easy_perform(curl);
+    if (result != CURLE_OK) {
+        fprintf(stderr, "[Error] [omt.com] Download problem: %s\n", curl_easy_strerror(result));
+        return 1;
+    }
+
+    buy_offset = buy_len = 0;
+
+    if (parse_x(page.buff, GTOG_IDENTIFIER_START, GTOG_IDENTIFIER_END,
+                &buy_offset, &buy_len)) {
+        free(page.buff);
+        fprintf(stderr, "[Error] Failed to parse omt.com's page!\n");
+        return 1;
+    }
+
+    buy = malloc(buy_len + 1);
+
+    memcpy(buy, page.buff + buy_offset, buy_len);
+    buy[buy_len] = '\0';
+
+    printf("GTOG: Buy %s\n", buy);
+    free(page.buff);
+    free(buy);
+    return 0;
 }
 
 int parse_x(char *str, const char *beforex, const char *afterx,
@@ -140,7 +184,7 @@ int main(void)
         return 1;
     }
 
-    return_code = lbprate_print(curl);
+    return_code = lbprate_print(curl) | gtog_print(curl);
     curl_easy_cleanup(curl);
     return return_code;
 }
