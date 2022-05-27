@@ -2,7 +2,8 @@ Lbprate
 =======
 
 This tool fetches the current 1 USD to LBP buy and sell rate
-from https://lbprate.com/
+from https://lbprate.com/,
+and GTOG's buy rate from https://www.omt.com.lb/en/services/payment/o-store
 
 # Dependencies
 - libcurl
