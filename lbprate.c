@@ -189,9 +189,9 @@ void usage()
 {
     puts("Usage: lbprate [options]\n"
          "Options:\n"
-         "  --gtog      Display GTOG buy rate.\n"
+         "  --gtog      Fetch GTOG buy rate.\n"
          "  --help      Display this information.\n"
-         "  --verbose   Display the sources."
+         "  --verbose   Display the rate's sources."
     );
 }
 
