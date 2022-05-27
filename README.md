@@ -24,4 +24,4 @@ and GTOG's buy rate from https://www.omt.com.lb/en/services/payment/o-store
 
 # TODO
 [ ] Get the last rate update time.
-[ ] Add more usage options.
+[X] Add more usage options.

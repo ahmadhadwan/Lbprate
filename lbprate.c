@@ -38,10 +38,15 @@ typedef struct {
 
 /* function declarations */
 size_t got_data(char *buffer, size_t itemsize, size_t nitems, sizedbuff *userp);
-int lbprate_print(CURL *curl);
 int gtog_print(CURL *curl);
+int lbprate_print(CURL *curl);
 int parse_x(char *str, const char *beforex, const char *afterx,
             size_t *x_offset, size_t *x_len);
+void usage();
+
+/* global variables */
+static int display_gtog = 0;
+static int verbose = 0;
 
 size_t got_data(char *buffer, size_t itemsize, size_t nitems, sizedbuff *userp)
 {
@@ -51,58 +56,6 @@ size_t got_data(char *buffer, size_t itemsize, size_t nitems, sizedbuff *userp)
     userp->len += bytes;
     userp->buff[userp->len] = '\0';
     return bytes;
-}
-
-int lbprate_print(CURL *curl)
-{
-    CURLcode result;
-    sizedbuff page;
-    size_t buy_offset, buy_len, sell_offset, sell_len;
-    char *buy, *sell;
-
-    page.len = 0;
-    page.buff = NULL;
-
-    curl_easy_setopt(curl, CURLOPT_URL, "https://lbprate.com/");
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, got_data);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &page);
-
-    result = curl_easy_perform(curl);
-    if (result != CURLE_OK) {
-        fprintf(stderr, "[Error] [lbprate.com] Download problem: %s\n", curl_easy_strerror(result));
-        return 1;
-    }
-
-    buy_offset = buy_len = sell_offset = sell_len = 0;
-
-    if (parse_x(page.buff, LBPRATE_IDENTIFIER_START, LBPRATE_IDENTIFIER_END,
-                &buy_offset, &buy_len)) {
-        goto CLEANUP;
-    }
-
-    if (parse_x(page.buff + buy_offset + buy_len, LBPRATE_IDENTIFIER_START, LBPRATE_IDENTIFIER_END,
-                &sell_offset, &sell_len)) {
-        goto CLEANUP;
-    }
-
-    buy = malloc(buy_len + 1);
-    sell = malloc(sell_len + 1);
-
-    memcpy(buy, page.buff + buy_offset, buy_len);
-    buy[buy_len] = '\0';
-    memcpy(sell, page.buff + buy_offset + buy_len + sell_offset, sell_len);
-    sell[sell_len] = '\0';
-
-    printf("Lbprate: Buy %s / Sell %s\n", buy, sell);
-    free(page.buff);
-    free(buy);
-    free(sell);
-    return 0;
-
-CLEANUP:
-    free(page.buff);
-    fprintf(stderr, "[Error] Failed to parse lbprate.com's page!\n");
-    return 1;
 }
 
 int gtog_print(CURL *curl)
@@ -145,6 +98,64 @@ int gtog_print(CURL *curl)
     return 0;
 }
 
+int lbprate_print(CURL *curl)
+{
+    CURLcode result;
+    sizedbuff page;
+    size_t buy_offset, buy_len, sell_offset, sell_len;
+    char *buy, *sell;
+
+    page.len = 0;
+    page.buff = NULL;
+
+    curl_easy_setopt(curl, CURLOPT_URL, "https://lbprate.com/");
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, got_data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &page);
+
+    result = curl_easy_perform(curl);
+    if (result != CURLE_OK) {
+        fprintf(stderr, "[Error] [lbprate.com] Download problem: %s\n", curl_easy_strerror(result));
+        return 1;
+    }
+
+    buy_offset = buy_len = sell_offset = sell_len = 0;
+
+    if (parse_x(page.buff, LBPRATE_IDENTIFIER_START, LBPRATE_IDENTIFIER_END,
+                &buy_offset, &buy_len)) {
+        goto CLEANUP;
+    }
+
+    if (parse_x(page.buff + buy_offset + buy_len, LBPRATE_IDENTIFIER_START, LBPRATE_IDENTIFIER_END,
+                &sell_offset, &sell_len)) {
+        goto CLEANUP;
+    }
+
+    buy = malloc(buy_len + 1);
+    sell = malloc(sell_len + 1);
+
+    memcpy(buy, page.buff + buy_offset, buy_len);
+    buy[buy_len] = '\0';
+    memcpy(sell, page.buff + buy_offset + buy_len + sell_offset, sell_len);
+    sell[sell_len] = '\0';
+
+    if (verbose) {
+        printf("Lbprate: Buy %s / Sell %s\n", buy, sell);
+    }
+    else {
+        printf("%s/%s\n", buy, sell);
+    }
+
+    free(page.buff);
+    free(buy);
+    free(sell);
+    return 0;
+
+CLEANUP:
+    free(page.buff);
+    fprintf(stderr, "[Error] Failed to parse lbprate.com's page!\n");
+    return 1;
+}
+
 int parse_x(char *str, const char *beforex, const char *afterx,
             size_t *x_offset, size_t *x_len)
 {
@@ -173,10 +184,37 @@ int parse_x(char *str, const char *beforex, const char *afterx,
     return 1;
 }
 
-int main(void)
+void usage()
+{
+    puts("Usage: lbprate [options]\n"
+         "Options:\n"
+         "  --gtog      Display GTOG buy rate.\n"
+         "  --help      Display this information.\n"
+         "  --verbose   Display the sources."
+    );
+}
+
+int main(int argc, char **argv)
 {
     CURL *curl;
     int return_code;
+
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--gtog")) {
+            display_gtog = 1;
+        }
+        else if (!strcmp(argv[i], "--help")) {
+            usage();
+            return 0;
+        }
+        else if (!strcmp(argv[i], "--verbose")) {
+            verbose = 1;
+        }
+        else {
+            usage();
+            return 1;
+        }
+    }
 
     curl = curl_easy_init();
     if (!curl) {
@@ -184,7 +222,11 @@ int main(void)
         return 1;
     }
 
-    return_code = lbprate_print(curl) | gtog_print(curl);
+    return_code = lbprate_print(curl);
+    if (display_gtog) {
+        return_code |= gtog_print(curl);
+    }
+
     curl_easy_cleanup(curl);
     return return_code;
 }
