@@ -37,12 +37,13 @@ typedef struct {
 } sizedbuff;
 
 /* function declarations */
-size_t got_data(char *buffer, size_t itemsize, size_t nitems, sizedbuff *userp);
-int gtog_print(CURL *curl);
-int lbprate_print(CURL *curl);
-int parse_x(char *str, const char *beforex, const char *afterx,
-            size_t *x_offset, size_t *x_len);
-void usage();
+static size_t got_data(char *buffer, size_t itemsize, size_t nitems,
+                       sizedbuff *userp);
+static int gtog_print(CURL *curl);
+static int lbprate_print(CURL *curl);
+static int parse_x(char *str, const char *beforex, const char *afterx,
+                   size_t *x_offset, size_t *x_len);
+static void usage();
 
 /* global variables */
 static int display_gtog = 0;
