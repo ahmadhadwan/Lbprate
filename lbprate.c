@@ -43,7 +43,7 @@ static int gtog_print(CURL *curl);
 static int lbprate_print(CURL *curl);
 static int parse_x(char *str, const char *beforex, const char *afterx,
                    size_t *x_offset, size_t *x_len);
-static void usage();
+static void usage(int exit_code);
 
 /* global variables */
 static int display_gtog = 0;
@@ -185,14 +185,15 @@ int parse_x(char *str, const char *beforex, const char *afterx,
     return 1;
 }
 
-void usage()
+void usage(int exit_code)
 {
     puts("Usage: lbprate [options]\n"
          "Options:\n"
-         "  --gtog      Fetch GTOG buy rate.\n"
-         "  --help      Display this information.\n"
-         "  --verbose   Display the rate's sources."
+         "  --gtog, -g     Fetch GTOG buy rate.\n"
+         "  --help         Display this information.\n"
+         "  --verbose, -v  Display the rate's sources."
     );
+    exit(exit_code);
 }
 
 int main(int argc, char **argv)
@@ -201,19 +202,31 @@ int main(int argc, char **argv)
     int return_code;
 
     for (int i = 1; i < argc; i++) {
-        if (!strcmp(argv[i], "--gtog")) {
+        if (argv[i][0] == '-' && argv[i][1] != '-') {
+            int arglen = strlen(argv[i]);
+            if (arglen < 2) {
+                usage(1);
+            }
+            for (int j = 1; j < arglen; j++) {
+                switch (argv[i][j])
+                {
+                    case 'g': display_gtog = 1; break;
+                    case 'v': verbose = 1; break;
+                    default: usage(1);
+                }
+            }
+        }
+        else if (!strcmp(argv[i], "--gtog")) {
             display_gtog = 1;
         }
         else if (!strcmp(argv[i], "--help")) {
-            usage();
-            return 0;
+            usage(0);
         }
         else if (!strcmp(argv[i], "--verbose")) {
             verbose = 1;
         }
         else {
-            usage();
-            return 1;
+            usage(1);
         }
     }
 
