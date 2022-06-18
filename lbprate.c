@@ -72,13 +72,15 @@ int gtog_print(CURL *curl)
     page.len = 0;
     page.buff = NULL;
 
-    curl_easy_setopt(curl, CURLOPT_URL, "https://www.omt.com.lb/en/services/payment/o-store");
+    curl_easy_setopt(curl, CURLOPT_URL,
+                     "https://www.omt.com.lb/en/services/payment/o-store");
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, got_data);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &page);
 
     result = curl_easy_perform(curl);
     if (result != CURLE_OK) {
-        fprintf(stderr, "[Error] [omt.com] Download problem: %s\n", curl_easy_strerror(result));
+        fprintf(stderr, "[Error] [omt.com] Download problem: %s\n",
+                curl_easy_strerror(result));
         return 1;
     }
 
@@ -118,7 +120,8 @@ int lbprate_print(CURL *curl)
 
     result = curl_easy_perform(curl);
     if (result != CURLE_OK) {
-        fprintf(stderr, "[Error] [lbprate.com] Download problem: %s\n", curl_easy_strerror(result));
+        fprintf(stderr, "[Error] [lbprate.com] Download problem: %s\n",
+                curl_easy_strerror(result));
         return 1;
     }
 
