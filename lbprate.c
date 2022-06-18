@@ -41,9 +41,10 @@ static size_t got_data(char *buffer, size_t itemsize, size_t nitems,
                        sizedbuff *userp);
 static int gtog_print(CURL *curl);
 static int lbprate_print(CURL *curl);
+static void parse_args(int argc, char **argv);
 static int parse_x(char *str, const char *beforex, const char *afterx,
                    size_t *x_offset, size_t *x_len);
-static void usage(int exit_code);
+static void usage(char *execname, int exit_code);
 
 /* global variables */
 static int display_gtog = 0;
@@ -157,6 +158,45 @@ CLEANUP:
     return 1;
 }
 
+void parse_args(int argc, char **argv)
+{
+    char *execname;
+
+    execname = argv[0];
+    for (int i = 1; i < argc; i++) {
+        if (argv[i][0] == '-' && argv[i][1] != '-') {
+            int arglen = strlen(argv[i]);
+            if (arglen < 2) {
+                printf("Expected flags after `-`\n");
+                usage(execname, 1);
+            }
+            for (int j = 1; j < arglen; j++) {
+                switch (argv[i][j])
+                {
+                    case 'g': display_gtog = 1; break;
+                    case 'v': verbose = 1; break;
+                    default:
+                        printf("Invalid flag: `%c`\n", argv[i][j]);
+                        usage(execname, 1);
+                }
+            }
+        }
+        else if (!strcmp(argv[i], "--gtog")) {
+            display_gtog = 1;
+        }
+        else if (!strcmp(argv[i], "--help")) {
+            usage(execname, 0);
+        }
+        else if (!strcmp(argv[i], "--verbose")) {
+            verbose = 1;
+        }
+        else {
+            printf("Invalid argument: `%s`\n", argv[i]);
+            usage(execname, 1);
+        }
+    }
+}
+
 int parse_x(char *str, const char *beforex, const char *afterx,
             size_t *x_offset, size_t *x_len)
 {
@@ -185,13 +225,14 @@ int parse_x(char *str, const char *beforex, const char *afterx,
     return 1;
 }
 
-void usage(int exit_code)
+void usage(char *execname, int exit_code)
 {
-    puts("Usage: lbprate [options]\n"
+    printf("Usage: %s [options]\n"
          "Options:\n"
          "  --gtog, -g     Fetch GTOG buy rate.\n"
          "  --help         Display this information.\n"
-         "  --verbose, -v  Display the rate's sources."
+         "  --verbose, -v  Display the rate's sources.\n",
+         execname
     );
     exit(exit_code);
 }
@@ -201,34 +242,7 @@ int main(int argc, char **argv)
     CURL *curl;
     int return_code;
 
-    for (int i = 1; i < argc; i++) {
-        if (argv[i][0] == '-' && argv[i][1] != '-') {
-            int arglen = strlen(argv[i]);
-            if (arglen < 2) {
-                usage(1);
-            }
-            for (int j = 1; j < arglen; j++) {
-                switch (argv[i][j])
-                {
-                    case 'g': display_gtog = 1; break;
-                    case 'v': verbose = 1; break;
-                    default: usage(1);
-                }
-            }
-        }
-        else if (!strcmp(argv[i], "--gtog")) {
-            display_gtog = 1;
-        }
-        else if (!strcmp(argv[i], "--help")) {
-            usage(0);
-        }
-        else if (!strcmp(argv[i], "--verbose")) {
-            verbose = 1;
-        }
-        else {
-            usage(1);
-        }
-    }
+    parse_args(argc, argv);
 
     curl = curl_easy_init();
     if (!curl) {
