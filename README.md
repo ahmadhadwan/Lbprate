@@ -26,5 +26,6 @@ from https://www.omt.com.lb/en/services/payment/o-store
 ```
 
 # TODO
-[ ] Get the last rate update time.
+[X] Get the last rate update time.
+
 [X] Add more usage options.

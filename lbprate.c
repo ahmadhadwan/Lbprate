@@ -24,11 +24,13 @@
 #include <string.h>
 
 /* macros */
-#define LBPRATE_IDENTIFIER_START   "1 USD at  "
-#define LBPRATE_IDENTIFIER_END     " "
+#define LBPRATE_IDENTIFIER_START        "1 USD at  "
+#define LBPRATE_IDENTIFIER_END          " "
+#define LBPRATE_TIME_IDENTIFIER_START   "Updated "
+#define LBPRATE_TIME_IDENTIFIER_END     "</"
 
-#define GTOG_IDENTIFIER_START      "GTOG&#039;s rate for its cards is "
-#define GTOG_IDENTIFIER_END        " "
+#define GTOG_IDENTIFIER_START           "GTOG&#039;s rate for its cards is "
+#define GTOG_IDENTIFIER_END             " "
 
 /* structs */
 typedef struct {
@@ -104,8 +106,8 @@ int lbprate_print(CURL *curl)
 {
     CURLcode result;
     sizedbuff page;
-    size_t buy_offset, buy_len, sell_offset, sell_len;
-    char *buy, *sell;
+    size_t time_offset, time_len, buy_offset, buy_len, sell_offset, sell_len;
+    char *time, *buy, *sell;
 
     page.len = 0;
     page.buff = NULL;
@@ -120,34 +122,43 @@ int lbprate_print(CURL *curl)
         return 1;
     }
 
-    buy_offset = buy_len = sell_offset = sell_len = 0;
+    time_offset = time_len = buy_offset = buy_len = sell_offset = sell_len = 0;
 
-    if (parse_x(page.buff, LBPRATE_IDENTIFIER_START, LBPRATE_IDENTIFIER_END,
-                &buy_offset, &buy_len)) {
+    if (parse_x(page.buff, LBPRATE_TIME_IDENTIFIER_START,
+                LBPRATE_TIME_IDENTIFIER_END, &time_offset, &time_len)) {
         goto CLEANUP;
     }
 
-    if (parse_x(page.buff + buy_offset + buy_len, LBPRATE_IDENTIFIER_START, LBPRATE_IDENTIFIER_END,
-                &sell_offset, &sell_len)) {
+    if (parse_x(page.buff + time_offset + time_len, LBPRATE_IDENTIFIER_START,
+                LBPRATE_IDENTIFIER_END, &buy_offset, &buy_len)) {
         goto CLEANUP;
     }
 
+    if (parse_x(page.buff + buy_offset + buy_len, LBPRATE_IDENTIFIER_START,
+                LBPRATE_IDENTIFIER_END, &sell_offset, &sell_len)) {
+        goto CLEANUP;
+    }
+
+    time = malloc(time_len + 1);
     buy = malloc(buy_len + 1);
     sell = malloc(sell_len + 1);
 
-    memcpy(buy, page.buff + buy_offset, buy_len);
+    memcpy(time, page.buff + time_offset, time_len);
+    time[time_len] = '\0';
+    memcpy(buy, page.buff + time_offset + time_len + buy_offset, buy_len);
     buy[buy_len] = '\0';
     memcpy(sell, page.buff + buy_offset + buy_len + sell_offset, sell_len);
     sell[sell_len] = '\0';
 
     if (verbose) {
-        printf("Lbprate: Buy %s / Sell %s\n", buy, sell);
+        printf("Lbprate: Updated %s: Buy %s / Sell %s\n", time, buy, sell);
     }
     else {
-        printf("%s/%s\n", buy, sell);
+        printf("%s: %s/%s\n", time, buy, sell);
     }
 
     free(page.buff);
+    free(time);
     free(buy);
     free(sell);
     return 0;
@@ -176,7 +187,7 @@ void parse_args(int argc, char **argv)
                     case 'g': display_gtog = 1; break;
                     case 'v': verbose = 1; break;
                     default:
-                        printf("Invalid flag: `%c`\n", argv[i][j]);
+                        printf("Invalid option: `-%c`\n", argv[i][j]);
                         usage(execname, 1);
                 }
             }
@@ -191,7 +202,7 @@ void parse_args(int argc, char **argv)
             verbose = 1;
         }
         else {
-            printf("Invalid argument: `%s`\n", argv[i]);
+            printf("Invalid option: `%s`\n", argv[i]);
             usage(execname, 1);
         }
     }
