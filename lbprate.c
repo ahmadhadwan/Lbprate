@@ -24,13 +24,13 @@
 #include <string.h>
 
 /* macros */
+#define GTOG_IDENTIFIER_START           "GTOG&#039;s rate for its cards is "
+#define GTOG_IDENTIFIER_END             " "
+
 #define LBPRATE_IDENTIFIER_START        "1 USD at  "
 #define LBPRATE_IDENTIFIER_END          " "
 #define LBPRATE_TIME_IDENTIFIER_START   "Updated "
 #define LBPRATE_TIME_IDENTIFIER_END     "</"
-
-#define GTOG_IDENTIFIER_START           "GTOG&#039;s rate for its cards is "
-#define GTOG_IDENTIFIER_END             " "
 
 /* structs */
 typedef struct {
@@ -40,7 +40,7 @@ typedef struct {
 
 /* function declarations */
 static size_t got_data(char *buffer, size_t itemsize, size_t nitems,
-                       sizedbuff *userp);
+                       void *userp);
 static int gtog_print(CURL *curl);
 static int lbprate_print(CURL *curl);
 static void parse_args(int argc, char **argv);
@@ -52,13 +52,18 @@ static void usage(char *execname, int exit_code);
 static int display_gtog = 0;
 static int verbose = 0;
 
-size_t got_data(char *buffer, size_t itemsize, size_t nitems, sizedbuff *userp)
+size_t got_data(char *buffer, size_t itemsize, size_t nitems, void *userp)
 {
-    size_t bytes = itemsize * nitems;
-    userp->buff = realloc(userp->buff, userp->len + bytes + 1);
-    memcpy(userp->buff + userp->len, buffer, bytes);
-    userp->len += bytes;
-    userp->buff[userp->len] = '\0';
+    size_t bytes;
+    sizedbuff *sb;
+
+    bytes = itemsize * nitems;
+    sb = userp;
+
+    sb->buff = realloc(sb->buff, sb->len + bytes + 1);
+    memcpy(sb->buff + sb->len, buffer, bytes);
+    sb->len += bytes;
+    sb->buff[sb->len] = '\0';
     return bytes;
 }
 
@@ -153,12 +158,8 @@ int lbprate_print(CURL *curl)
     memcpy(sell, page.buff + buy_offset + buy_len + sell_offset, sell_len);
     sell[sell_len] = '\0';
 
-    if (verbose) {
-        printf("Lbprate: Updated %s: Buy %s / Sell %s\n", time, buy, sell);
-    }
-    else {
-        printf("%s: %s/%s\n", time, buy, sell);
-    }
+    printf(verbose ? "Lbprate: Updated %s: Buy %s / Sell %s\n" : "%s: %s/%s\n",
+            time, buy, sell);
 
     free(page.buff);
     free(time);
