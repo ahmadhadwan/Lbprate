@@ -24,9 +24,6 @@
 #include <string.h>
 
 /* macros */
-#define GTOG_IDENTIFIER_START           "GTOG&#039;s rate for its cards is "
-#define GTOG_IDENTIFIER_END             " "
-
 #define LBPRATE_IDENTIFIER_START        "1 USD at  "
 #define LBPRATE_IDENTIFIER_END          " "
 #define LBPRATE_TIME_IDENTIFIER_START   "Updated "
@@ -41,7 +38,6 @@ typedef struct {
 /* function declarations */
 static size_t got_data(char *buffer, size_t itemsize, size_t nitems,
                        void *userp);
-static int gtog_print(CURL *curl);
 static int lbprate_print(CURL *curl);
 static void parse_args(int argc, char **argv);
 static int parse_x(char *str, const char *beforex, const char *afterx,
@@ -49,7 +45,6 @@ static int parse_x(char *str, const char *beforex, const char *afterx,
 static void usage(char *execname, int exit_code);
 
 /* global variables */
-static int display_gtog = 0;
 static int verbose = 0;
 
 size_t got_data(char *buffer, size_t itemsize, size_t nitems, void *userp)
@@ -65,48 +60,6 @@ size_t got_data(char *buffer, size_t itemsize, size_t nitems, void *userp)
     sb->len += bytes;
     sb->buff[sb->len] = '\0';
     return bytes;
-}
-
-int gtog_print(CURL *curl)
-{
-    CURLcode result;
-    sizedbuff page;
-    size_t buy_offset, buy_len;
-    char *buy;
-
-    page.len = 0;
-    page.buff = NULL;
-
-    curl_easy_setopt(curl, CURLOPT_URL,
-                     "https://www.omt.com.lb/en/services/payment/o-store");
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, got_data);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &page);
-
-    result = curl_easy_perform(curl);
-    if (result != CURLE_OK) {
-        fprintf(stderr, "[Error] [omt.com] Download problem: %s\n",
-                curl_easy_strerror(result));
-        return 1;
-    }
-
-    buy_offset = buy_len = 0;
-
-    if (parse_x(page.buff, GTOG_IDENTIFIER_START, GTOG_IDENTIFIER_END,
-                &buy_offset, &buy_len)) {
-        free(page.buff);
-        fprintf(stderr, "[Error] Failed to parse omt.com's page!\n");
-        return 1;
-    }
-
-    buy = malloc(buy_len + 1);
-
-    memcpy(buy, page.buff + buy_offset, buy_len);
-    buy[buy_len] = '\0';
-
-    printf("GTOG: Buy %s\n", buy);
-    free(page.buff);
-    free(buy);
-    return 0;
 }
 
 int lbprate_print(CURL *curl)
@@ -188,16 +141,12 @@ void parse_args(int argc, char **argv)
             for (int j = 1; j < arglen; j++) {
                 switch (argv[i][j])
                 {
-                    case 'g': display_gtog = 1; break;
                     case 'v': verbose = 1; break;
                     default:
                         printf("Invalid option: `-%c`\n", argv[i][j]);
                         usage(execname, 1);
                 }
             }
-        }
-        else if (!strcmp(argv[i], "--gtog")) {
-            display_gtog = 1;
         }
         else if (!strcmp(argv[i], "--help")) {
             usage(execname, 0);
@@ -244,9 +193,8 @@ void usage(char *execname, int exit_code)
 {
     printf("Usage: %s [options]\n"
          "Options:\n"
-         "  --gtog, -g     Fetch GTOG buy rate.\n"
          "  --help         Display this information.\n"
-         "  --verbose, -v  Display the rate's sources.\n",
+         "  --verbose, -v  Prints a verbose message.\n",
          execname
     );
     exit(exit_code);
@@ -266,10 +214,6 @@ int main(int argc, char **argv)
     }
 
     return_code = lbprate_print(curl);
-    if (display_gtog) {
-        return_code |= gtog_print(curl);
-    }
-
     curl_easy_cleanup(curl);
     return return_code;
 }
