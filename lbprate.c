@@ -29,6 +29,9 @@
 #define LBPRATE_TIME_IDENTIFIER_START   "Updated "
 #define LBPRATE_TIME_IDENTIFIER_END     "</"
 
+#define LBPRATE_DEFAULT_FORMAT         "%T: %B/%S"
+#define LBPRATE_DEFAULT_FORMAT_VERBOSE "1 USD is being bought for %B LBP, and sold for %S LBP. Rates last updated %T ago. Source: https://lbprate.com/"
+
 /* structs */
 typedef struct {
     size_t len;
@@ -42,10 +45,12 @@ static int lbprate_print(CURL *curl);
 static void parse_args(int argc, char **argv);
 static int parse_x(char *str, const char *beforex, const char *afterx,
                    size_t *x_offset, size_t *x_len);
+static void print_formatted(char *format, char *buy, char *sell, char *time);
 static void usage(char *execname, int exit_code);
 
 /* global variables */
 static int verbose = 0;
+static char *format_string = NULL;
 
 size_t got_data(char *buffer, size_t itemsize, size_t nitems, void *userp)
 {
@@ -111,8 +116,7 @@ int lbprate_print(CURL *curl)
     memcpy(sell, page.buff + buy_offset + buy_len + sell_offset, sell_len);
     sell[sell_len] = '\0';
 
-    printf(verbose ? "Lbprate: Updated %s: Buy %s / Sell %s\n" : "%s: %s/%s\n",
-            time, buy, sell);
+    print_formatted(format_string, buy, sell, time);
 
     free(page.buff);
     free(time);
@@ -141,12 +145,28 @@ void parse_args(int argc, char **argv)
             for (int j = 1; j < arglen; j++) {
                 switch (argv[i][j])
                 {
+                    case 'f':
+                        if (i + 1 >= argc) {
+                            printf("Expected format string after `-f`\n");
+                            usage(execname, 1);
+                        }
+                        i++;
+                        format_string = argv[i];
+                        break;
                     case 'v': verbose = 1; break;
                     default:
                         printf("Invalid option: `-%c`\n", argv[i][j]);
                         usage(execname, 1);
                 }
             }
+        }
+        else if (!strcmp(argv[i], "--format")) {
+            if (i + 1 >= argc) {
+                printf("Expected format string after `--format`\n");
+                usage(execname, 1);
+            }
+            i++;
+            format_string = argv[i];
         }
         else if (!strcmp(argv[i], "--help")) {
             usage(execname, 0);
@@ -189,10 +209,39 @@ int parse_x(char *str, const char *beforex, const char *afterx,
     return 1;
 }
 
+void print_formatted(char *format, char *buy, char *sell, char *time)
+{
+    int format_len;
+
+    format_len = strlen(format);
+    for (int i = 0; i < format_len; i++) {
+        if (format[i] == '%') {
+            i++;
+            switch (format[i])
+            {
+                case 'B': printf("%s", buy); break;
+                case 'S': printf("%s", sell); break;
+                case 'T': printf("%s", time); break;
+                default:
+                    putchar(format[i - 1]);
+                    putchar(format[i]);
+                    break;
+            }
+            i++;
+        }
+        putchar(format[i]);
+    }
+    putchar('\n');
+}
+
 void usage(char *execname, int exit_code)
 {
     printf("Usage: %s [options]\n"
          "Options:\n"
+         "  --format, -f <format string>\n"
+         "      %%B, buy rate.\n"
+         "      %%S, sell rate.\n"
+         "      %%T, last update time.\n"
          "  --help         Display this information.\n"
          "  --verbose, -v  Prints a verbose message.\n",
          execname
@@ -206,6 +255,11 @@ int main(int argc, char **argv)
     int return_code;
 
     parse_args(argc, argv);
+
+    if (format_string == NULL)
+        format_string = verbose
+                      ? LBPRATE_DEFAULT_FORMAT_VERBOSE
+                      : LBPRATE_DEFAULT_FORMAT;
 
     curl = curl_easy_init();
     if (!curl) {

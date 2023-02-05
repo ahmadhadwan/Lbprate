@@ -27,3 +27,5 @@ from https://lbprate.com/
 [X] Get the last rate update time.
 
 [X] Add more usage options.
+
+[ ] Make the source code cleaner.
